@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest==9.0.3
+pytest-cov==6.0.0
+fakeredis==2.26.2
+respx==0.21.1
+httpx2==2.2.0
+pip-audit==2.7.3
