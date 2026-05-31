@@ -1,0 +1,19 @@
+# Environment — never commit keys
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Generated prompt (changes every run)
+prompts/current_worker.md
+
+# Raw contract output if auto-parse fails
+contracts_raw_output.md
+
+# OS
+.DS_Store
+Thumbs.db

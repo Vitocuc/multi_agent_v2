@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "project_id": "",
+    "schema_version": "1.0",
+    "description": "Append-only shared project memory. Never edited manually. Entries extracted by system after each milestone report is accepted. The CTO orchestrator receives a filtered subset of this file as context when planning each new feature.",
+    "filter_rules": [
+      "Inject architecture_decisions where feature_id is in the current feature's depends_on chain",
+      "Inject ALL failed_approaches regardless of feature — workers must know what not to try",
+      "Inject discovered_constraints where affects_features overlaps with current feature_id",
+      "Inject open_risks where severity is high or critical, or where blocking_features includes current feature_id"
+    ]
+  },
+
+  "architecture_decisions": [
+    {
+      "_comment": "Example entry — replace with real decisions as they emerge",
+      "decision_id": "AD-001",
+      "feature_id": "F-01-001",
+      "timestamp": "",
+      "decision": "",
+      "rationale": "",
+      "contract_ref": "",
+      "reversible": true,
+      "cost_to_reverse": "low | medium | high",
+      "supersedes": []
+    }
+  ],
+
+  "failed_approaches": [
+    {
+      "_comment": "Example entry — replace with real failures as they emerge",
+      "entry_id": "FA-001",
+      "feature_id": "F-01-001",
+      "timestamp": "",
+      "what_was_tried": "",
+      "why_it_failed": "",
+      "exit_code_ref": "",
+      "do_not_retry": false,
+      "alternative_used": ""
+    }
+  ],
+
+  "discovered_constraints": [
+    {
+      "_comment": "Example entry — replace with real constraints as they emerge",
+      "constraint_id": "DC-001",
+      "feature_id": "F-01-001",
+      "timestamp": "",
+      "source": "env | api | infra | library",
+      "description": "",
+      "affects_features": [],
+      "contract_update_needed": false,
+      "workaround": ""
+    }
+  ],
+
+  "open_risks": [
+    {
+      "_comment": "Example entry — replace with real risks as they emerge",
+      "risk_id": "OR-001",
+      "feature_id": "F-01-001",
+      "timestamp": "",
+      "severity": "low | medium | high | critical",
+      "description": "",
+      "mitigation_status": "open | mitigated | accepted",
+      "security_deviation": false,
+      "blocking_features": [],
+      "resolution_notes": ""
+    }
+  ]
+}

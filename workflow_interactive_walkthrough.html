@@ -1,0 +1,233 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.stage{display:none;padding:1.25rem 0}
+.stage.active{display:block}
+.phase-bar{display:flex;gap:6px;margin-bottom:1.5rem;flex-wrap:wrap}
+.phase-pill{padding:5px 14px;border-radius:20px;font-size:12px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);cursor:pointer;background:var(--color-background-secondary);transition:all .15s}
+.phase-pill.active{background:var(--color-background-primary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.step-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.step-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.step-badge{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:500;white-space:nowrap}
+.badge-user{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.badge-cto{background:#EEEDFE;color:#3C3489}
+.badge-worker{background:#E6F1FB;color:#0C447C}
+.badge-validator{background:#EAF3DE;color:#27500A}
+.badge-system{background:#F1EFE8;color:#444441}
+.badge-human{background:#FAEEDA;color:#633806}
+.step-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.step-body{font-size:13px;color:var(--color-text-secondary);line-height:1.6}
+.doc-ref{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);margin:2px 2px 0 0;font-family:var(--font-mono)}
+.gate{border-left:3px solid #EF9F27;border-radius:0;padding-left:12px;background:transparent;border-top:none;border-right:none;border-bottom:none;margin:8px 0 0}
+.gate-label{font-size:11px;font-weight:500;color:#854F0B;margin-bottom:3px}
+.decision{border-left:3px solid #E24B4A;border-radius:0;padding-left:12px;background:transparent;border-top:none;border-right:none;border-bottom:none;margin:8px 0 0}
+.decision-label{font-size:11px;font-weight:500;color:#A32D2D;margin-bottom:3px}
+.arrow-row{text-align:center;color:var(--color-text-tertiary);font-size:18px;margin:2px 0}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem}
+.nav button{font-size:13px;padding:6px 18px}
+.progress{font-size:12px;color:var(--color-text-secondary)}
+.loop-note{font-size:12px;color:var(--color-text-tertiary);font-style:italic;margin-top:6px}
+</style>
+
+<h2 class="sr-only">Interactive workflow walkthrough: six phases from project brief to shared memory, showing which agent acts at each step and which documents are read or written.</h2>
+
+<div class="phase-bar" id="phases"></div>
+<div id="stages"></div>
+<div class="nav">
+  <button onclick="go(-1)" id="prev">← Back</button>
+  <span class="progress" id="prog"></span>
+  <button onclick="go(1)" id="next">Next →</button>
+</div>
+
+<script>
+const phases = [
+  {
+    id: 0,
+    label: "Phase 0 — Input",
+    steps: [
+      {
+        actor: "user", title: "Write the project brief",
+        body: "You describe the idea: what to build, tech stack preferences, hard constraints, non-goals. No workflow involved yet — this is a plain document you fill in.",
+        docs: ["doc0_project_brief.md"],
+        writes: ["doc0"]
+      },
+      {
+        actor: "user", title: "Pass doc0 to the CTO orchestrator",
+        body: "The CTO receives doc0 as its sole input. Nothing else exists yet — no contracts, no memory, no features.",
+        docs: ["doc0_project_brief.md"]
+      }
+    ]
+  },
+  {
+    id: 1,
+    label: "Phase 1 — Planning",
+    steps: [
+      {
+        actor: "cto", title: "CTO reads doc0",
+        body: "The CTO orchestrator reads the full project brief. It slow-reasons over the domain, constraints, tech stack, and non-goals. It identifies ambiguities and gaps before writing anything.",
+        docs: ["doc0_project_brief.md"]
+      },
+      {
+        actor: "cto", title: "Clarification loop",
+        body: "CTO asks the most important unresolved question. You answer. CTO appends the round to clarification_log in doc0. Repeats until confident.",
+        docs: ["doc0_project_brief.md"],
+        gate: "Loop continues until CTO sets shared_plan_approved: true",
+        loop: "Could be 1 round or 5 — depends on how complete doc0 was"
+      },
+      {
+        actor: "user", title: "Approve the shared plan",
+        body: "CTO summarises the agreed plan: key decisions, open assumptions, scope boundary. You review and confirm. This is your last chance to course-correct before three contracts are locked.",
+        docs: ["doc0_project_brief.md"],
+        gate: "Human approval required before contracts are generated"
+      }
+    ]
+  },
+  {
+    id: 2,
+    label: "Phase 2 — Contracts",
+    steps: [
+      {
+        actor: "cto", title: "CTO generates three contracts",
+        body: "From the approved plan, the CTO produces all three contracts in one pass. They are consistent with each other by design: security constraints in doc1 are referenced by features in doc2, and test cases in doc3 map 1-to-1 to acceptance criteria in doc2.",
+        docs: ["doc1_security_contract.md", "doc2_features_contract.md", "doc3_validation_contract.md"],
+        writes: ["doc1", "doc2", "doc3"]
+      },
+      {
+        actor: "user", title: "Review and approve contracts",
+        body: "You read all three. Check that the security checklist matches your threat model, that feature blocks are specific enough, and that test cases are testable. You can request amendments — each bumps contract_version.",
+        docs: ["doc1_security_contract.md", "doc2_features_contract.md", "doc3_validation_contract.md"],
+        gate: "No worker starts until you approve. Amendments are tracked in each file."
+      }
+    ]
+  },
+  {
+    id: 3,
+    label: "Phase 3 — Implementation",
+    steps: [
+      {
+        actor: "system", title: "Scheduler resolves DAG",
+        body: "The system reads depends_on fields in doc2 and determines which features can start. Features with no unmet dependencies and parallel_safe: true can run concurrently.",
+        docs: ["doc2_features_contract.md", "memory.json"]
+      },
+      {
+        actor: "worker", title: "Worker reads its context",
+        body: "Each worker receives: its feature block from doc2, the full doc1 security contract, and a filtered subset of memory.json (only entries relevant to this feature). It reads all three before writing a single line of code.",
+        docs: ["doc1_security_contract.md", "doc2_features_contract.md", "memory.json"]
+      },
+      {
+        actor: "worker", title: "Worker creates branch + implements",
+        body: "Worker creates: git checkout -b feature/F-XX-XXX-slug. Implements only what the feature block describes — no scope creep. Runs tests, runs dependency audit.",
+        docs: []
+      },
+      {
+        actor: "worker", title: "Worker fills milestone report",
+        body: "Worker completes doc4 for this feature: what was built, what was left undone, every command run with exit code, issues discovered, security checklist ticked.",
+        docs: ["doc4_milestone_report.md"],
+        writes: ["doc4 (one copy per feature)"]
+      },
+      {
+        actor: "worker", title: "Worker opens PR — does not merge",
+        body: "PR title: [F-XX-XXX] Feature name. PR description is the milestone report. Worker stops here. The branch is never merged by the worker.",
+        docs: []
+      }
+    ]
+  },
+  {
+    id: 4,
+    label: "Phase 4 — Validation",
+    steps: [
+      {
+        actor: "human", title: "Human checkpoint — PR review",
+        body: "You review the PR diff. This is a code review, not a rubber stamp. If something looks wrong, you reject and the worker revises on the same branch. Only after your approval does the validator run.",
+        docs: ["doc4_milestone_report.md"],
+        gate: "Merge is blocked until human approves AND validator passes"
+      },
+      {
+        actor: "validator", title: "Validator reads spec — not code",
+        body: "The validator (different provider/model than the worker) reads: the feature's test suite from doc3 and the worker's milestone report from doc4. It never reads source code. It judges whether the milestone report's evidence satisfies each test case.",
+        docs: ["doc3_validation_contract.md", "doc4_milestone_report.md"]
+      },
+      {
+        actor: "validator", title: "Validator emits result",
+        body: "Validator writes a structured result block into doc4: overall pass/fail, per-test-case status, any escalations (security failures are always escalated). If human_gate_required: true, it flags for another human review even on pass.",
+        docs: ["doc4_milestone_report.md"],
+        writes: ["doc4 — validator_result section"],
+        decision: "PASS → system proceeds to memory extraction + merge. FAIL → back to worker on same branch."
+      }
+    ]
+  },
+  {
+    id: 5,
+    label: "Phase 5 — Memory + merge",
+    steps: [
+      {
+        actor: "system", title: "Extract memory entries",
+        body: "System reads the completed doc4 and appends structured entries to memory.json: architecture decisions made, approaches that failed, constraints discovered, open risks. Append-only — nothing is ever deleted.",
+        docs: ["doc4_milestone_report.md", "memory.json"],
+        writes: ["memory.json — 4 sections"]
+      },
+      {
+        actor: "system", title: "Update feature status tracker",
+        body: "System sets the feature's row in doc2's status tracker to: passed. Any features that were blocked by this one (depends_on) are now eligible to start.",
+        docs: ["doc2_features_contract.md"],
+        writes: ["doc2 — status tracker"]
+      },
+      {
+        actor: "system", title: "Merge PR",
+        body: "PR merges to main. Branch is kept for history. GitHub milestone progress updates automatically.",
+        docs: []
+      },
+      {
+        actor: "cto", title: "Next feature — CTO gets filtered memory",
+        body: "When planning the next feature, the CTO receives memory.json filtered to: decisions in the dependency chain, all failed approaches, constraints affecting this feature, high/critical open risks. The system grows smarter with each cycle.",
+        docs: ["doc0_project_brief.md", "memory.json"],
+        loop: "Return to Phase 3 for the next feature in the DAG"
+      }
+    ]
+  }
+];
+
+const colors = {user:"badge-user",cto:"badge-cto",worker:"badge-worker",validator:"badge-validator",system:"badge-system",human:"badge-human"};
+const labels = {user:"You",cto:"CTO orchestrator",worker:"Worker agent",validator:"Validator agent",system:"System",human:"You (reviewer)"};
+
+let current = 0;
+
+function render() {
+  const pbar = document.getElementById('phases');
+  pbar.innerHTML = phases.map((p,i) =>
+    `<span class="phase-pill${i===current?' active':''}" onclick="jump(${i})">${p.label}</span>`
+  ).join('');
+
+  const container = document.getElementById('stages');
+  const ph = phases[current];
+  container.innerHTML = ph.steps.map((s,i) => {
+    let docsHtml = s.docs.length ? '<div style="margin-top:8px">' + s.docs.map(d=>`<span class="doc-ref">${d}</span>`).join('') + '</div>' : '';
+    let gateHtml = s.gate ? `<div class="step-card gate"><div class="gate-label">Gate</div><div class="step-body">${s.gate}</div></div>` : '';
+    let decHtml = s.decision ? `<div class="step-card decision"><div class="decision-label">Decision</div><div class="step-body">${s.decision}</div></div>` : '';
+    let loopHtml = s.loop ? `<p class="loop-note">↻ ${s.loop}</p>` : '';
+    return `
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-badge ${colors[s.actor]}">${labels[s.actor]}</span>
+          <span class="step-title">${s.title}</span>
+        </div>
+        <div class="step-body">${s.body}</div>
+        ${docsHtml}
+        ${loopHtml}
+      </div>
+      ${gateHtml}${decHtml}
+      ${i < ph.steps.length-1 ? '<div class="arrow-row">↓</div>' : ''}
+    `;
+  }).join('');
+
+  document.getElementById('prog').textContent = `Phase ${current+1} of ${phases.length}`;
+  document.getElementById('prev').disabled = current === 0;
+  document.getElementById('next').disabled = current === phases.length - 1;
+  document.getElementById('next').textContent = current === phases.length-1 ? 'Done' : 'Next →';
+}
+
+function go(dir) { if(current+dir >= 0 && current+dir < phases.length){ current+=dir; render(); } }
+function jump(i) { current=i; render(); }
+render();
+</script>
