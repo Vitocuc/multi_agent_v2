@@ -9,7 +9,7 @@
 feature_id:       F-01-001
 milestone_id:     M-01
 branch:           feature/F-01-001-sso-session
-commit_sha:       ""        # filled after final commit
+commit_sha:       "71b6049e277260602c305557885a30bd8f805e68"
 pr_id:            ""        # filled after PR is opened
 timestamp:        "2026-05-31T21:00:00+00:00"
 worker_model:     "claude-sonnet-4-6"
