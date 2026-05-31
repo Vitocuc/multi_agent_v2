@@ -24,6 +24,6 @@ COPY pytest.ini .
 
 # DOCKER_TEST=1 tells conftest.py to use real Postgres + Redis
 ENV DOCKER_TEST=1
-PYTHONPATH=/app/src
+ENV PYTHONPATH=/app/src
 
 CMD ["python", "-m", "pytest", "tests/", "-v", "--tb=short"]
