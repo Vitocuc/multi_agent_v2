@@ -1,0 +1,89 @@
+# ── shared service definitions ────────────────────────────────────────────────
+
+x-postgres-healthcheck: &postgres-hc
+  test: ["CMD-SHELL", "pg_isready -U protegopay -d protegopay"]
+  interval: 5s
+  timeout: 5s
+  retries: 10
+  start_period: 10s
+
+x-redis-healthcheck: &redis-hc
+  test: ["CMD", "redis-cli", "ping"]
+  interval: 5s
+  timeout: 5s
+  retries: 10
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: protegopay
+      POSTGRES_USER: protegopay
+      POSTGRES_PASSWORD: protegopay_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck: *postgres-hc
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck: *redis-hc
+
+  # ── Application (development / manual testing) ──────────────────────────────
+
+  app:
+    build:
+      context: .
+      target: base
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://protegopay:protegopay_dev@postgres:5432/protegopay
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Test runner (real Postgres + Redis, same test suite) ────────────────────
+  #
+  # Usage:
+  #   docker compose run --rm test
+  #   docker compose run --rm test python -m pytest tests/test_auth.py -v -k "blacklist"
+  #
+  # The DOCKER_TEST=1 env var switches conftest.py from SQLite/fakeredis to
+  # real services. A separate DB (protegopay_test) and Redis DB 1 are used so
+  # the app DB is never touched during test runs.
+
+  test:
+    build:
+      context: .
+      target: test
+    environment:
+      DOCKER_TEST: "1"
+      DATABASE_URL: postgresql://protegopay:protegopay_dev@postgres:5432/protegopay_test
+      REDIS_URL: redis://redis:6379/1
+      # Safe test-only secrets — never use these values outside of test containers
+      SESSION_SECRET: test-session-secret-docker-safe-32b
+      EXTERNAL_ID_HMAC_KEY: test-hmac-key-docker-safe-32bytes!
+      OIDC_JWKS_URI: https://test-idp.example.com/.well-known/jwks.json
+      OIDC_AUDIENCE: protegopay-pilot
+      OIDC_ISSUER: https://test-idp.example.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

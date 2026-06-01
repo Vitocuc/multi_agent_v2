@@ -213,6 +213,7 @@ def call_gemini(prompt, dry_run=False):
     try:
         import urllib.request
         import urllib.error
+        import time
     except ImportError:
         die("urllib not available — this should never happen with standard Python.")
 
@@ -225,7 +226,8 @@ def call_gemini(prompt, dry_run=False):
         ],
         "generationConfig": {
             "temperature":     0.1,   # low temperature — we want deterministic validation
-            "maxOutputTokens": 2048,
+            "maxOutputTokens": 8192,
+            "thinkingConfig":  {"thinkingBudget": 0},  # disable thinking; keeps output tokens for response
         },
     }).encode("utf-8")
 
@@ -237,19 +239,36 @@ def call_gemini(prompt, dry_run=False):
         method="POST",
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        die(f"Gemini API error {e.code}: {body}")
-    except urllib.error.URLError as e:
-        die(f"Network error calling Gemini: {e.reason}")
+    raw = None
+    for attempt in range(1, 6):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            if e.code in (429, 503) and attempt < 5:
+                wait = 15 * attempt
+                print(c(YELLOW, f"  Gemini {e.code} — retrying in {wait}s (attempt {attempt}/5)..."))
+                time.sleep(wait)
+                continue
+            die(f"Gemini API error {e.code}: {body}")
+        except urllib.error.URLError as e:
+            die(f"Network error calling Gemini: {e.reason}")
+    if raw is None:
+        die("Gemini API unavailable after 5 retries.")
 
     # Extract text from response
     try:
-        text = raw["candidates"][0]["content"]["parts"][0]["text"]
-        return text.strip()
+        candidate = raw["candidates"][0]
+        finish_reason = candidate.get("finishReason", "STOP")
+        text = candidate["content"]["parts"][0]["text"].strip()
+        if finish_reason not in ("STOP", "MAX_TOKENS") or len(text) < 100:
+            die(
+                f"Gemini response incomplete (finishReason={finish_reason}, "
+                f"length={len(text)} chars). Raw: {json.dumps(raw)[:500]}"
+            )
+        return text
     except (KeyError, IndexError) as e:
         die(f"Unexpected Gemini response shape: {e}\nRaw: {json.dumps(raw)[:500]}")
 
@@ -481,7 +500,6 @@ def main():
         die("Gemini returned an empty response.")
 
     print(c(DIM, "  Response received.\n"))
-
     # 3. Parse result
     result = parse_validator_result(raw_yaml)
 
