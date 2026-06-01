@@ -10,7 +10,7 @@ feature_id:       F-01-001
 milestone_id:     M-01
 branch:           feature/F-01-001-sso-session
 commit_sha:       "71b6049e277260602c305557885a30bd8f805e68"
-pr_id:            ""        # filled after PR is opened
+pr_id:            "1"       # https://github.com/Vitocuc/multi_agent_v2/pull/1
 timestamp:        "2026-05-31T21:00:00+00:00"
 worker_model:     "claude-sonnet-4-6"
 ```
@@ -169,12 +169,13 @@ procedures_notes:    "Docker build could not be verified locally due to missing 
 ## Validator result
 
 ```yaml
+
 validator_result:
-  run_at:           ""
-  provider:         ""
-  model_version:    ""
-  overall:          pending
-  blocking_passed:  pending
+  run_at:           "2026-06-01T08:39:58.240215+00:00"
+  provider:         "gemini"
+  model_version:    "gemini-2.5-flash"
+  overall:          pass
+  blocking_passed:  true
   human_gate:       pending
   failures:         []
   escalations:      []
