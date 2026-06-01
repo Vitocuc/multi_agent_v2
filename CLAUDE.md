@@ -112,7 +112,7 @@ After filing the milestone report and committing everything:
 git add .
 git commit -m "[{feature_id}] {feature title}"
 git push origin feature/{feature_id}-{slug}
-gh pr create --title "[{feature_id}] {feature title}" --body "$(cat reports/{feature_id}_milestone.md)"
+gh pr create --base develop --title "[{feature_id}] {feature title}" --body "$(cat reports/{feature_id}_milestone.md)"
 ```
 
 The PR body must be the milestone report content.

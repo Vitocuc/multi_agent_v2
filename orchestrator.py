@@ -601,7 +601,7 @@ def cmd_next():
                   f"Milestone: {feature.get('milestone_id', '?')}"))
 
     if len(ready) > 1:
-        others = [f"{fid} ({features[fid].get('title', '').strip('\"')})"
+        others = ["{} ({})".format(fid, features[fid].get('title', '').strip('"'))
                   for fid in ready[1:]]
         print(c(DIM, f"  Also ready: {', '.join(others)}"))
 
@@ -701,7 +701,7 @@ def cmd_post(feature_id):
     features_fresh, status_fresh = parse_doc2()
     newly_ready = ready_features(features_fresh, status_fresh)
     if newly_ready:
-        labels = [f"{fid} ({features_fresh[fid].get('title','').strip('\"')})"
+        labels = ["{} ({})".format(fid, features_fresh[fid].get('title', '').strip('"'))
                   for fid in newly_ready]
         print(c(GREEN, f"\n  Now ready to start: {', '.join(labels)}"))
         print(c(DIM,   "  Run: python orchestrator.py next\n"))

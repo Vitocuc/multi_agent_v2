@@ -141,42 +141,8 @@ resolved: true
 
 <!-- MANAGED BY CTO ORCHESTRATOR — written once clarification is complete. -->
 
-shared_plan_approved: true
+shared_plan_approved: false
 
-summary: >
-  ProtegoPay is a B2B white-label responsible-gambling module built as a FastAPI
-  (Python 3.12) service, embedded within the concessionaire's (e.g. Sisal) platform
-  via SSO delegation. It gives users a voluntary spending dashboard, configurable
-  deposit limits, configurable alerts, and reflection pauses — all advisory in the
-  pilot, with the concessionaire retaining all payment authority. Data is stored in
-  PostgreSQL on AWS RDS (eu-central-1, AES-256 encrypted), with strict GDPR data
-  minimisation, audit trails, and a GDPR Art. 20 export endpoint. Security posture
-  is high: OIDC token validation, Redis-backed JWT blacklist, Pydantic input
-  validation on every boundary, and pip-audit in CI.
-
-key_decisions:
-  - "Language/framework: Python 3.12 + FastAPI — chosen for type safety, OpenAPI
-    auto-docs, async support, and mature fintech/regulated ecosystem"
-  - "Database: PostgreSQL 15 on AWS RDS (eu-central-1) — meets EU/EEA hosting
-    requirement, supports encryption at rest, row-level security, and audit trails"
-  - "Auth: OAuth2/OIDC delegated to concessionaire's IdP — no standalone ProtegoPay
-    KYC; PKCE flow; session JWT in httpOnly cookie; Redis blacklist for revocation"
-  - "Hosting: AWS eu-central-1 (Frankfurt) — meets EU/EEA data-residency requirement"
-  - "CI/CD: GitHub Actions with required human-approval gate before prod deploy"
-  - "Secrets: AWS Secrets Manager in prod; .env (gitignored) in dev only"
-  - "Rate limiting: Redis sliding-window; fails closed if Redis unavailable"
-  - "M-01 scope: SSO integration, spending dashboard, voluntary limits — minimal
-    viable pilot that demonstrates value without touching the cashier"
-  - "Limits are advisory in the pilot: alert on breach, do not block deposits —
-    deposit blocking remains the concessionaire's exclusive responsibility"
-
-open_assumptions:
-  - "The concessionaire's IdP exposes a standard OIDC discovery endpoint and JWKS URI"
-  - "The concessionaire provides a spending event feed (webhook or polling API) that
-    ProtegoPay can consume; mock data is acceptable for the pilot milestone"
-  - "S3 (eu-central-1) is acceptable for GDPR export storage with a 15-minute
-    pre-signed URL; legal counsel has confirmed this is compliant"
-  - "A DPIA will be completed before any production deployment; the pilot
-    implementation documents data flows to support the DPIA"
-  - "The technical delivery team size and working model are TBD; contracts are
-    written for a solo or small team implementation"
+<!-- summary: written by CTO after all rounds resolved -->
+<!-- key_decisions: [] -->
+<!-- open_assumptions: [] -->
