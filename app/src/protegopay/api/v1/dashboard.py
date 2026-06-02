@@ -12,6 +12,7 @@ Security enforced here:
 """
 from datetime import datetime, timezone
 from enum import Enum
+from typing import List
 
 import redis as redis_lib
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
@@ -21,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ...core.config import Settings, get_settings
 from ...core.logging_setup import audit
-from ...db.models import SpendingEvent
+from ...db.models import AlertRecord, SpendingEvent
 from ...db.session import get_db
 from ..deps import get_current_user_id, get_redis
 from ...services.rate_limiter import is_api_rate_limited
@@ -38,11 +39,19 @@ class Period(str, Enum):
     last_month = "last_month"
 
 
+class AlertInfo(BaseModel):
+    id: str
+    alert_type: str
+    period: str
+    acknowledged: bool
+
+
 class DashboardResponse(BaseModel):
     period_start: str   # ISO 8601
     period_end: str     # ISO 8601
     total_deposit_eurocents: int
     session_count: int
+    alerts: List[AlertInfo]  # unacknowledged alerts for this user (all periods)
 
 
 def _month_boundaries(period: Period, now: datetime) -> tuple[datetime, datetime]:
@@ -108,6 +117,17 @@ def get_dashboard(
     total_deposit_eurocents = int(row[0])
     session_count = int(row[1])
 
+    # Fetch unacknowledged alerts — ownership enforced by user_id from JWT
+    unacked_alerts = (
+        db.query(AlertRecord)
+        .filter(AlertRecord.user_id == user_id, AlertRecord.acknowledged == False)  # noqa: E712
+        .all()
+    )
+    alerts = [
+        AlertInfo(id=a.id, alert_type=a.alert_type, period=a.period, acknowledged=a.acknowledged)
+        for a in unacked_alerts
+    ]
+
     # Audit log: user_id + period only — never amounts
     audit("data_access", "success", user_id=user_id, request_id=period.value)
 
@@ -116,4 +136,5 @@ def get_dashboard(
         period_end=period_end.isoformat(),
         total_deposit_eurocents=total_deposit_eurocents,
         session_count=session_count,
+        alerts=alerts,
     )

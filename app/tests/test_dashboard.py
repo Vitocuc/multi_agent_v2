@@ -68,9 +68,10 @@ def test_dashboard_with_events_returns_200_aggregated(client, rsa_private_pem, d
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
-    assert set(body.keys()) == {"period_start", "period_end", "total_deposit_eurocents", "session_count"}
+    assert set(body.keys()) == {"period_start", "period_end", "total_deposit_eurocents", "session_count", "alerts"}
     assert body["total_deposit_eurocents"] == 2000
     assert body["session_count"] == 2
+    assert isinstance(body["alerts"], list)
     # period boundaries are ISO 8601
     datetime.fromisoformat(body["period_start"])
     datetime.fromisoformat(body["period_end"])
@@ -182,8 +183,8 @@ def test_dashboard_response_contains_no_raw_identifiers(client, rsa_private_pem,
     assert resp.status_code == 200
     body = resp.json()
 
-    # Only permitted keys in response
-    assert set(body.keys()) == {"period_start", "period_end", "total_deposit_eurocents", "session_count"}
+    # Only permitted keys in response (alerts added by F-02-001)
+    assert set(body.keys()) == {"period_start", "period_end", "total_deposit_eurocents", "session_count", "alerts"}
 
     # Raw event ID must not appear anywhere in the response text
     assert event_id not in resp.text
