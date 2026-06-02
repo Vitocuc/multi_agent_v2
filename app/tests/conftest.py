@@ -181,6 +181,8 @@ def _clean_db(db_engine):
     """Truncate all data rows between tests (required for real Postgres; harmless for SQLite)."""
     yield
     with db_engine.connect() as conn:
+        conn.execute(text("DELETE FROM alert_records"))
+        conn.execute(text("DELETE FROM alert_thresholds"))
         conn.execute(text("DELETE FROM deposit_limits"))
         conn.execute(text("DELETE FROM spending_events"))
         conn.execute(text("DELETE FROM users"))
