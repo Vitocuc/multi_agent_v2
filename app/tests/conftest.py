@@ -178,9 +178,10 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 
 @pytest.fixture(autouse=True)
 def _clean_db(db_engine):
-    """Truncate user rows between tests (required for real Postgres; harmless for SQLite)."""
+    """Truncate all data rows between tests (required for real Postgres; harmless for SQLite)."""
     yield
     with db_engine.connect() as conn:
+        conn.execute(text("DELETE FROM spending_events"))
         conn.execute(text("DELETE FROM users"))
         conn.commit()
 

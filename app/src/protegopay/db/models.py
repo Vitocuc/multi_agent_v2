@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, DateTime
+from sqlalchemy import ForeignKey, Integer, String, DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -23,4 +23,22 @@ class User(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+
+class SpendingEvent(Base):
+    """Aggregated spending record for a single gaming session deposit.
+
+    Amounts are stored as integer eurocents (never float).
+    No raw session identifiers or PII are stored.
+    """
+    __tablename__ = "spending_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    deposit_eurocents: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
