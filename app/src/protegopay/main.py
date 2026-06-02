@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from .api.v1.auth import router as auth_router
 from .api.v1.dashboard import router as dashboard_router
+from .api.v1.limits import router as limits_router
 from .db.session import init_db
 
 
@@ -23,3 +24,4 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(dashboard_router)
+app.include_router(limits_router)
