@@ -1,33 +1,27 @@
-"""Spending Dashboard API — F-01-002.
+"""Spending Dashboard API — F-01-002 + F-02-002 pause extension.
 
-GET /v1/dashboard  — return authenticated user's aggregated spending summary
-                     for the current or previous calendar month.
-
-Security enforced here:
-  - Auth: get_current_user_id dep validates JWT + Redis blacklist
-  - Authorization: user_id comes from JWT claim only — never from request
-  - Rate limiting: 60 req/min per session token JTI (sliding window, Redis)
-  - Audit log: data_access event emitted per successful response (no amounts)
-  - Response: aggregated totals only — no raw events, no transaction IDs, no PII
+GET /v1/dashboard  — return authenticated user's aggregated spending summary.
+                     If a reflection pause is active, returns a reduced view
+                     (no spending amounts) per F-02-002.
 """
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 import redis as redis_lib
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
+from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...core.config import Settings, get_settings
 from ...core.logging_setup import audit
-from ...db.models import AlertRecord, SpendingEvent
+from ...core.security import decode_session_token
+from ...db.models import AlertRecord, PauseRecord, SpendingEvent
 from ...db.session import get_db
 from ..deps import get_current_user_id, get_redis
 from ...services.rate_limiter import is_api_rate_limited
-from ...core.security import decode_session_token
-from jose import JWTError
 
 router = APIRouter(prefix="/v1", tags=["dashboard"])
 
@@ -47,27 +41,26 @@ class AlertInfo(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    period_start: str   # ISO 8601
-    period_end: str     # ISO 8601
-    total_deposit_eurocents: int
-    session_count: int
-    alerts: List[AlertInfo]  # unacknowledged alerts for this user (all periods)
+    period_start: str
+    period_end: str
+    # Spending fields — omitted when a reflection pause is active
+    total_deposit_eurocents: Optional[int] = None
+    session_count: Optional[int] = None
+    alerts: List[AlertInfo]
+    # Pause fields — present only when pause is active
+    pause_active: bool = False
+    pause_expires_at: Optional[str] = None
+    message: Optional[str] = None
 
 
 def _month_boundaries(period: Period, now: datetime) -> tuple[datetime, datetime]:
-    """Return (start_inclusive, end_exclusive) for the requested period."""
     if period == Period.current_month:
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if start.month == 12:
-            end = start.replace(year=start.year + 1, month=1)
-        else:
-            end = start.replace(month=start.month + 1)
-    else:  # last_month
+        end = start.replace(month=start.month + 1) if start.month < 12 else start.replace(year=start.year + 1, month=1)
+    else:
         first_of_current = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if first_of_current.month == 1:
-            start = first_of_current.replace(year=first_of_current.year - 1, month=12)
-        else:
-            start = first_of_current.replace(month=first_of_current.month - 1)
+        start = first_of_current.replace(month=first_of_current.month - 1) if first_of_current.month > 1 \
+            else first_of_current.replace(year=first_of_current.year - 1, month=12)
         end = first_of_current
     return start, end
 
@@ -81,27 +74,55 @@ def get_dashboard(
     db: Session = Depends(get_db),
     redis: redis_lib.Redis = Depends(get_redis),
 ):
-    """Return aggregated spending summary for the authenticated user."""
-    # Rate limiting — per-token JTI (60 req/min sliding window)
+    """Return aggregated spending summary. Returns reduced view when a pause is active."""
     jti: str | None = None
     if session_token:
         try:
             payload = decode_session_token(session_token, settings)
             jti = payload.get("jti")
         except JWTError:
-            pass  # already validated by get_current_user_id; treat missing jti as no key
+            pass
 
     if jti and is_api_rate_limited(jti, redis):
         audit("rate_limit_hit", "rejected", user_id=user_id)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="rate_limit_exceeded",
-        )
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate_limit_exceeded")
 
     now = datetime.now(timezone.utc)
     period_start, period_end = _month_boundaries(period, now)
 
-    # Aggregate totals — ownership enforced via user_id from JWT
+    # Check for active reflection pause — ownership enforced by user_id from JWT
+    active_pause = (
+        db.query(PauseRecord)
+        .filter(
+            PauseRecord.user_id == user_id,
+            PauseRecord.status == "active",
+            PauseRecord.expires_at > now,
+        )
+        .first()
+    )
+
+    # Unacknowledged alerts — always included (ownership enforced)
+    unacked_alerts = (
+        db.query(AlertRecord)
+        .filter(AlertRecord.user_id == user_id, AlertRecord.acknowledged == False)  # noqa: E712
+        .all()
+    )
+    alerts = [AlertInfo(id=a.id, alert_type=a.alert_type, period=a.period, acknowledged=a.acknowledged)
+              for a in unacked_alerts]
+
+    audit("data_access", "success", user_id=user_id, request_id=period.value)
+
+    if active_pause:
+        # Reduced view: no spending amounts returned during pause
+        return DashboardResponse(
+            period_start=period_start.isoformat(),
+            period_end=period_end.isoformat(),
+            alerts=alerts,
+            pause_active=True,
+            pause_expires_at=(active_pause.expires_at if active_pause.expires_at.tzinfo else active_pause.expires_at.replace(tzinfo=timezone.utc)).isoformat(),
+            message="You have an active reflection pause.",
+        )
+
     row = (
         db.query(
             func.coalesce(func.sum(SpendingEvent.deposit_eurocents), 0),
@@ -114,27 +135,12 @@ def get_dashboard(
         )
         .one()
     )
-    total_deposit_eurocents = int(row[0])
-    session_count = int(row[1])
-
-    # Fetch unacknowledged alerts — ownership enforced by user_id from JWT
-    unacked_alerts = (
-        db.query(AlertRecord)
-        .filter(AlertRecord.user_id == user_id, AlertRecord.acknowledged == False)  # noqa: E712
-        .all()
-    )
-    alerts = [
-        AlertInfo(id=a.id, alert_type=a.alert_type, period=a.period, acknowledged=a.acknowledged)
-        for a in unacked_alerts
-    ]
-
-    # Audit log: user_id + period only — never amounts
-    audit("data_access", "success", user_id=user_id, request_id=period.value)
 
     return DashboardResponse(
         period_start=period_start.isoformat(),
         period_end=period_end.isoformat(),
-        total_deposit_eurocents=total_deposit_eurocents,
-        session_count=session_count,
+        total_deposit_eurocents=int(row[0]),
+        session_count=int(row[1]),
         alerts=alerts,
+        pause_active=False,
     )

@@ -111,6 +111,24 @@ class AlertRecord(Base):
     )
 
 
+class PauseRecord(Base):
+    """Voluntary reflection pause record.
+
+    status: active | cancelled | expired
+    revocable_until: starts_at + 30 minutes; DELETE rejected after this point.
+    Advisory in the pilot — does not block deposits.
+    """
+    __tablename__ = "pause_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    duration: Mapped[str] = mapped_column(String(5), nullable=False)   # "1h" | "24h" | "7d"
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="active")
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revocable_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ExportJob(Base):
     """GDPR Art. 20 data export job record.
 
