@@ -183,6 +183,7 @@ def _clean_db(db_engine):
     yield
     with db_engine.connect() as conn:
         conn.execute(text("DELETE FROM export_jobs"))
+        conn.execute(text("DELETE FROM pause_records"))
         conn.execute(text("DELETE FROM alert_records"))
         conn.execute(text("DELETE FROM alert_thresholds"))
         conn.execute(text("DELETE FROM deposit_limits"))

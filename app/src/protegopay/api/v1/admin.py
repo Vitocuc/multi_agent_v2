@@ -12,9 +12,11 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, status
 
 from ...core.logging_setup import audit
-from ...db.models import DepositLimit, User
+from ...db.models import DepositLimit, PauseRecord, User
 from ...db.session import get_db
 from ..deps import get_admin_user_id
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
@@ -32,13 +34,18 @@ def get_admin_stats(
     db: Session = Depends(get_db),
 ):
     """Return anonymised aggregate statistics. Never returns individual user data."""
+    now = datetime.now(timezone.utc)
     active_users = db.query(User).count()
     limits_configured = db.query(DepositLimit).count()
+    pauses_active = db.query(PauseRecord).filter(
+        PauseRecord.status == "active",
+        PauseRecord.expires_at > now,
+    ).count()
 
     audit("admin_action", "success", user_id=admin_user_id, request_id="get_stats")
 
     return AdminStatsResponse(
         active_users_count=active_users,
         limits_configured_count=limits_configured,
-        pauses_active_count=0,  # F-02-002 pause records not yet implemented
+        pauses_active_count=pauses_active,
     )
