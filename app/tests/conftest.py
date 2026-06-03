@@ -41,6 +41,7 @@ from sqlalchemy.pool import StaticPool
 
 from protegopay.api.deps import get_redis
 from protegopay.core.config import Settings, get_settings
+from protegopay.core.security import create_admin_token
 from protegopay.db.models import Base, User
 from protegopay.db.session import get_db
 from protegopay.main import app
@@ -181,6 +182,7 @@ def _clean_db(db_engine):
     """Truncate all data rows between tests (required for real Postgres; harmless for SQLite)."""
     yield
     with db_engine.connect() as conn:
+        conn.execute(text("DELETE FROM export_jobs"))
         conn.execute(text("DELETE FROM alert_records"))
         conn.execute(text("DELETE FROM alert_thresholds"))
         conn.execute(text("DELETE FROM deposit_limits"))

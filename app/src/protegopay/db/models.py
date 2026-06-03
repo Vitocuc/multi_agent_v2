@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, DateTime, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, Text, String, DateTime, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -109,3 +109,27 @@ class AlertRecord(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class ExportJob(Base):
+    """GDPR Art. 20 data export job record.
+
+    status: processing | ready | failed
+    export_data: serialised JSON of the user's data — stored server-side,
+                 never returned directly in API responses.
+    download_token: short-lived signed token used to authorise the download URL.
+    Pilot: data stored in DB; production should upload to S3 and store only the key.
+    """
+    __tablename__ = "export_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="processing")
+    export_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    download_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
